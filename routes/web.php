@@ -20,5 +20,5 @@ Auth::routes();
 Route::get('/home', 'HomeController@index')->name('home');
 Route::get('/transaction/add', 'TransactionController@add')->name('add-trans');
 Route::post('/transaction/add', 'TransactionController@add')->name('add-trans.post');
-Route::get('/transaction/show', 'HomeController@index')->name('show-trans');
+Route::get('/transaction/show', 'TransactionController@show')->name('show-trans');
 Route::get('/profile', 'HomeController@index')->name('edit-profile');

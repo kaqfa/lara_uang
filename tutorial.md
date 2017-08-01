@@ -69,12 +69,6 @@ php artisan migrate
 ```
 
 - Refresh browser, registrasi user, dan login
-- Untuk menambah jumlah user, kita juga bisa menambahkan data abal-abal dengan cara berikut:
-
-```
-php artisan tinker
->>> factory(App\User::class, 10)->create();
-```
 
 ## Merubah Tampilan Secara Sederhana
 
@@ -289,6 +283,14 @@ public function addTransaction($input)
 - Jangan lupa untuk memindahkan Router ke `Transaction@add`
 
 - Untuk memudahkan proses development, kita dapat membuat model factory untuk tabel transactions tersebut.
+- Untuk menambah jumlah user, dengan data abal-abal dengan cara berikut:
+
+```
+php artisan tinker
+>>> factory(App\User::class, 10)->create();
+```
+
+- Sedangkan untuk data transaksi kita perlu membuat definisi factory-nya terlebih dahulu
 - Buka file `database/factories/ModelFactory.php` dan tambahkan kode berikut:
 
 ```php
@@ -309,5 +311,183 @@ $factory->define(App\Transaction::class, function (Faker\Generator $faker) {
 ```
 >>> exit
 php artisan tinker
->>> factory(App\Transaction::class, 10)->create();
+>>> factory(App\Transaction::class, 100)->create();
 ```
+
+## Membuat Repository Untuk Transaksi
+
+- Repository adalah tempat untuk mengeksekusi query secara tersentral
+- Membuat repository secara manual dengan membuat folder di `app/Repositories`, kemudian menambahkan file `TransactionRepository` pada folder tersebut
+- Isi dari file tersebut adalah sebagai berikut:
+
+```php
+<?php
+namespace App\Repositories;
+
+use App\Transaction;
+
+
+class TransactionRepository{
+
+    protected $trans;
+    protected $uid = null;
+
+    public function __construct(Transaction $trans)
+    {
+        $this->trans = $trans;
+    }
+
+    public function setUid($uid){
+        $this->uid = $uid;
+    }
+
+    public function latestTrans()
+    {
+        $latest = $this->trans->orderBy('created_at', 'desc');
+        if($this->uid != null)
+            return $latest->where('user_id', $this->uid);
+        return $latest;
+    }
+
+    public function listIn()
+    {
+        $latest = $this->latestTrans()->where('type', 2);
+        return $latest->get();
+    }
+
+    public function listOut()
+    {
+        $latest = $this->latestTrans()->where('type', 1);
+        return $latest->get();
+    }
+
+    public function getBalance()
+    {
+        $in = $this->latestTrans()->where('type', 2)->sum('amount');
+        $out = $this->latestTrans()->where('type', 1)->sum('amount');
+
+        return $in - $out;
+    }
+
+    public function add($input)
+    {
+        // already implemented in User model
+    }
+}
+```
+
+- [optional] Bisa diuji coba pada tinker terlebih dahulu
+
+## Tambah View dan Controller Show Transaksi
+
+- Pertama tambahkan method pada `TransactionController` sebagaimana berikut:
+
+```php
+<?php
+// ...
+
+use App\Repositories\TransactionRepository;
+
+class TransactionController extends Controller
+{
+    protected $repo;
+    protected $user;
+        
+    public function __construct(TransactionRepository $transRepo)
+    {
+        $this->repo = $transRepo;
+        $this->middleware(function ($request, $next) {
+            $this->user= Auth::user();
+            $this->repo->setUid($this->user->id);
+            return $next($request);
+        });
+    }
+    
+    public function show()
+    {
+        return view('list-trans', ['balance' => $this->repo->getBalance(),
+            'outTransactions' => $this->repo->listOut(),
+            'inTransactions' => $this->repo->listIn()]);
+    }
+    
+    // ...
+}
+```
+
+- Selanjutnya buat file `\resources\views\list-trans.blade.php` dan isikan kode berikut:
+
+```html
+@extends('layouts.app')
+
+@section('content')
+    <div class="row">
+        <div class="col-md-8 col-md-offset-2">
+            <div class="panel panel-primary">
+                <div class="panel-heading">
+                    Catatan Transaksi
+                </div>
+                <div class="panel-body">
+                    <h2>Sisa Uang Dimiliki: Rp. {{ $balance }}</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            @if(count($outTransactions))
+                            <table class="table table-striped">
+                                <thead>
+                                <tr>
+                                    <th colspan="3">Transaksi Pengeluaran</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                @foreach($outTransactions as $trans)
+                                <tr>
+                                    <td>{{ $trans->title }}</td>
+                                    <td>{{ $trans->amount }}</td>
+                                    <td>
+                                        <a href="{{ $trans->id }}" class="btn btn-info">tampil</a>
+                                    </td>
+                                </tr>
+                                @endforeach
+                                </tbody>
+                            </table>
+                            @else
+                            <h3>Belum ada transaksi pengeluaran</h3>
+                            @endif
+                        </div>
+                        <div class="col-md-6">
+                            @if(count($inTransactions))
+                                <table class="table table-striped">
+                                    <thead>
+                                    <tr>
+                                        <th colspan="3">Transaksi Pengeluaran</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    @foreach($inTransactions as $trans)
+                                        <tr>
+                                            <td>{{ $trans->title }}</td>
+                                            <td>{{ $trans->amount }}</td>
+                                            <td>
+                                                <a href="{{ $trans->id }}" class="btn btn-info">tampil</a>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                    </tbody>
+                                </table>
+                            @else
+                                <h3>Belum ada transaksi pemasukan</h3>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+@endsection
+```
+- Terakhir modifikasi router
+
+## Buat View dan Controller Detail
+
+Buatlah View dan Controller untuk Detail
+
+## Buat Form Request untuk validasi
