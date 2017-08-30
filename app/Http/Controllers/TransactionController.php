@@ -2,9 +2,9 @@
 /**
  * TransactionController File Documentation
  *
- * @category Controller Class
- * @package Controller
- * @author Fahri Firdausillah
+ * @category Controller_Class
+ * @package  Controller
+ * @author   Fahri Firdausillah <elfaatta@gmail.com>
  */
 
 namespace App\Http\Controllers;
