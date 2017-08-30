@@ -16,6 +16,8 @@ before_script:
   - npm install npm@latest -g
   - npm install -g jshint
   - npm install
+  - php artisan key:generate
+  - php artisan config:clear
 
 script:
   - vendor/bin/phpunit --coverage-text
